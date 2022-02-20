@@ -26,6 +26,7 @@ const transforms = {
   order: (order) => ({
     id: order.orderId,
     created_at: order.orderPlacedDateTime,
+    date_time: order.orderPlacedDateTime,
 
     line_items: order.orderItems.map(transforms.orderItem),
     pickup_point: order.pickupPoint,
@@ -41,6 +42,7 @@ const transforms = {
   shipment: (shipment) => ({
     id: shipment.shipmentId,
     shipment_date: shipment.shipmentDateTime,
+    date_time: shipment.shipmentDateTime,
     pickup_point: shipment.pickupPoint,
     order_id: shipment.order.orderId,
 
@@ -60,6 +62,7 @@ const transforms = {
     id: rt.returnId,
     return_register_date: rt.registrationDateTime,
     fulfilmentMethod: rt.fulfilmentMethod,
+    date_time: rt.registrationDateTime,
 
     line_items: rt.returnItems.map((item) => ({
       rma_id: item.rmaId,
