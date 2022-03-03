@@ -5,8 +5,8 @@ const bol = require("./bol")({
   clientId: process.env.BOL_CLIENT_ID,
 });
 const Warehouse = require("./warehouse")({
-	datasetName: "bolcom",
-  location: "EU",
+	datasetName: process.env.BQ_DATASET_NAME,
+  location: process.env.BQ_DATASET_LOCATION,
 })
 const Transforms = require("./transforms");
 
@@ -55,12 +55,6 @@ async function getNewOrders(lastOrderDateTime){
 async function getNewShipments(lastShipmentDateTime){
   const shipments = await bol.getShipments();
 
-  // let shipments = await bol._listResource("shipments", 0, 10);
-  // for (let i of [3, 2, 1]){
-  //   const newShipments = await bol._listResource("shipments", 0, i);
-  //   shipments = [...shipments, ...newShipments]
-  // }
-
   const shipmentIdDates = shipments.map((shipment) => ({
     shipmentId: shipment.shipmentId,
     shipmentPlacedDateTime: new Date(shipment.shipmentDateTime),
@@ -92,26 +86,20 @@ async function getNewReturns(lastReturnDateTime){
 }
 
 (async function(){
-  // Warehouse.getLatestRecordTime("orders", "date_time").then((lastRecordTime) => {
-  //   getNewOrders(lastRecordTime).then(newOrders => {
-  //     if (newOrders.length) Warehouse.insertRows("orders", newOrders)
-  //   })
-  // })
 
-  // Warehouse.getLatestRecordTime("shipments", "date_time").then((lastRecordTime) => {
-  //   getNewShipments(lastRecordTime).then(newShipments => {
-  //     console.log(newShipments)
-      // if (newShipments.length) Warehouse.insertRows("shipments", newShipments)
-  //   })
-  // })
+  const lastRecordTime = await Warehouse.getLatestRecordTime("orders", "date_time")
+  const newOrders = await getNewOrders(lastRecordTime)
+  if (newOrders.length) await Warehouse.insertRows("orders", newOrders)
+  console.log("[Orders] ✔")
 
-  const lastRecordTime = await Warehouse.getLatestRecordTime("returns", "date_time")
-  const newReturns = await getNewReturns(lastRecordTime)
+  const lastRecordTime2 = await Warehouse.getLatestRecordTime("shipments", "date_time")
+  const newShipments = await getNewShipments(lastRecordTime2)
+  if (newShipments.length) await Warehouse.insertRows("shipments", newShipments)
+  console.log("[Shipments] ✔")
+
+  const lastRecordTime3 = await Warehouse.getLatestRecordTime("returns", "date_time")
+  const newReturns = await getNewReturns(lastRecordTime3)
   if (newReturns.length) await Warehouse.insertRows("returns", newReturns)
   console.log("[Returns] ✔")
 
-  // const fs = require("fs").promises
-  // allReturns = await getNewReturns(new Date(0))
-  // console.log(allReturns)
-  // await fs.writeFile("dump.json", JSON.stringify(allReturns))
 })()
