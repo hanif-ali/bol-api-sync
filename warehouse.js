@@ -23,26 +23,29 @@ class Warehouse {
     return table;
   }
 
-  async getLatestRecord(tableName, dateColumn) {
+  async getLatestRecordTime(tableName, dateColumn) {
     /* 
 		Returns the latest record from BigQuery, sorted using dateColumn
 		*/
     const sqlQuery = `SELECT *
 					FROM \`${this.datasetName}.${tableName}\`
-					ORDER BY @dateColumn DESC
-					LIMIT 1`;
+					ORDER BY ${dateColumn} DESC`;
 
     const options = {
       query: sqlQuery,
       location: this.location,
-      params: { dateColumn },
     };
+    const [rows] = await bigquery.query(options);
 
-    return bigquery.query(options);
+    const date = rows.length ? rows[0][dateColumn]?.value : 0 
+    return date ? new Date(date) : new Date(0)
   }
 
   async insertRows(tableName, rows) {
-    return await self.dataset.table(tableName).insert(rows);
+    const options = {
+      schemaUpdateOptions: ['ALLOW_FIELD_ADDITION'],
+    }
+    return this.dataset.table(tableName).insert(rows, options);
   }
 }
 

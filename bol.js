@@ -87,13 +87,14 @@ class BolAPI {
       );
   }
 
-  async _listResource(resourceName, retries = 0) {
+  async _listResource(resourceName, retries = 0, page=1) {
+    console.debug(`Fetching ${resourceName.toUpperCase()}, Page ${page}`)
     if (!this.accessToken) {
       console.log("Access Token is Null. Logging In");
       await this.login();
     }
     return axios
-      .get(`https://api.bol.com/retailer/${resourceName}?status=ALL`, {
+      .get(`https://api.bol.com/retailer/${resourceName}?status=ALL&page=${page}`, {
         headers: {
           // Authorization: `Bearer ${this.accessToken}`,
           Authorization: `Bearer ${this.accessToken}`,
@@ -102,26 +103,48 @@ class BolAPI {
       })
       .then(
         (res) => {
-          return res.data[resourceName] || [];
+          const result = res.data;
+          if (!result || Object.keys(result).length === 0){
+            return [] // nullish or {}
+          } 
+          return result[resourceName]
         },
         (err) => {
           if (retries >= this.maxApiRetries) {
             throw err;
           }
-
-          if (err.response.data === 401) {
+          else if (err?.response.status === 401) {
             console.log("401 on List. Nullifying Token and retrying");
             this.accessToken = null;
           }
-					return this.sleep(waitTime).then(() => {
-						return this._listResource(resourceName,retries+1)
-					})
+					else if (err?.response.status === 429){
+						const retryAfter = err.response.headers["retry-after"]
+						const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : this.defaultRetrieveWait
+						console.warn(`Rate Limit Reached. Waiting for ${retryAfter} seconds`)
+            return this.sleep(waitTime).then(() => {
+              return this._listResource(resourceName,retries+1, page)
+            })
+          }
+          else throw err
         }
       );
   }
 
+  async _listAllResource(resourceName){
+    const allRecords = [];
+    let pageNumber = 1;
+    while (true){
+      const results = await this._listResource(resourceName, 0, pageNumber)
+      if (!results || results.length == 0) break;
+      allRecords.push(...results)
+      pageNumber++
+    }
+    console.log(`Total ${allRecords.length} ${resourceName} retrieved`)
+    return allRecords
+  }
+
   async getOrders() {
-    return this._listResource("orders");
+    return this._listAllResource("orders");
   }
 
   async getOrder(orderId) {
@@ -129,7 +152,7 @@ class BolAPI {
   }
 
   async getShipments() {
-    return this._listResource("shipments");
+    return this._listAllResource("shipments");
   }
 
   async getShipment(shipmentId) {
@@ -137,7 +160,7 @@ class BolAPI {
   }
 
   async getReturns() {
-    return this._listResource("returns");
+    return this._listAllResource("returns");
   }
 
   async getReturn(returnId) {
